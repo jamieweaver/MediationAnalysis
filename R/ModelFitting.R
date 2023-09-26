@@ -71,6 +71,13 @@ createModelsettings <- function(ps = "oracle",
 #'   main effect in a model *not* including the mediator.
 #' - mainLogUbNoM: The log of the upper bound of the confidence interval for the 
 #'    main effect in a model *not* including the mediator.
+#' - mainLogDiff: The indirect effect of the mediator using the difference
+#'   method. This is the difference of the log hazard ratio for the main effect in 
+#'   a model including the mediator and a model *not* including the mediator.
+#' - mainLogLbDiff: The log of the lower bound of the confidence interval for the
+#'   indirect effect using the difference method
+#' - mainLogUbDiff: The log of the upper bound of the confidence interval for the
+#'   indirect effect using the difference method
 #'
 #' @export
 fitModel <- function(data, settings) {
@@ -91,7 +98,8 @@ fitModel <- function(data, settings) {
   
   if (settings$mrs == "oracle") {
     data$mrs <- data$hMstar
-  } else if (settings$ps == "fit") {
+  } else if (settings$ps == "fit") { #BUG?
+  # } else if (settings$mrs == "fit") {
     xNames <- colnames(data)[grepl("^x[0-9]+$", colnames(data))]
     psF <- as.formula(paste("m ~ offset(log(tM)) + ", paste(xNames, collapse = " + ")))
     cyclopsData <- Cyclops::createCyclopsData(psF, data = data, modelType = "pr")
@@ -174,11 +182,18 @@ fitModel <- function(data, settings) {
   fit1 <- coxph(update(f, ~ . + m), data = data)
   ci1 <- confint(fit1)
   e1 <- coef(fit1)
+  se1 <- summary(fit1)$coef["aTRUE", 3]
   
   # Without mediator:
   fit2 <- coxph(f, data = data)
   ci2 <- confint(fit2)
   e2 <- coef(fit2)
+  se2 <- summary(fit2)$coef["aTRUE", 3]
+  
+  # log difference with vs without mediator:
+  logDiff <- e1["aTRUE"] - e2["aTRUE"]
+  seLogDiff <- sqrt(se1^2 / e1["aTRUE"]^2 + se2^2 / e2["aTRUE"]^2)
+  logDiffCi <- logDiff + c(-1, 1) * qnorm(0.975) * seLogDiff
   
   result <- tibble(mainLogHr = e1["aTRUE"],
                    mainLogLb = ci1["aTRUE", 1],
@@ -188,6 +203,9 @@ fitModel <- function(data, settings) {
                    mediatorLogUb = ci1["mTRUE", 2],
                    mainLogHrNoM = e2["aTRUE"],
                    mainLogLbNoM = ci2["aTRUE", 1],
-                   mainLogUbNoM = ci2["aTRUE", 2])
+                   mainLogUbNoM = ci2["aTRUE", 2],
+                   mainLogDiff = logDiff,
+                   mainLogLbDiff = logDiffCi[1],
+                   mainLogUbDiff = logDiffCi[2])
   return(result)
 }

@@ -36,7 +36,7 @@ runSetOfSimulations <- function(folder,
                                 nSimulations = 1000,
                                 maxCores = 4) {
   if (!dir.exists(folder)) {
-    dir.create(folder)
+    dir.create(folder, recursive = TRUE)
   }
   cluster <- ParallelLogger::makeCluster(maxCores)
   on.exit(ParallelLogger::stopCluster(cluster))
@@ -69,9 +69,11 @@ runSetOfSimulations <- function(folder,
                                           simulationSettings$yM <= results$mediatorLogUb),
           coverageMainEffectNoM = mean(simulationSettings$yA >= results$mainLogLb & 
                                          simulationSettings$yA <= results$mainLogUb),
+          coverageIndirectEffect = mean(log(1) >= results$mainLogLbDiff & log(1) <= results$mainLogUbDiff), # wrong?
           meanMainEffect = mean(results$mainLogHr),
           meanMediatorEffect = mean(results$mediatorLogHr),
           meanMainEffectNoM = mean(results$mainLogHrNoM),
+          meanIndirectEffect = mean(results$mainLogDiff)
         )
         simulationSettings$aX <- paste(simulationSettings$aX, collapse = ", ")
         simulationSettings$mX <- paste(simulationSettings$mX, collapse = ", ")
